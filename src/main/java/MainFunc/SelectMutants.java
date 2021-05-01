@@ -15,7 +15,7 @@ public class SelectMutants {
 
         String muInfoFileDir = "D:\\subjects(20210314)\\mart-out-0"; //String muInfoFileDir = "/home/anfu/test_print_tokens/source.modified.clang-compilable/mart-out-0";
         ArrayList<MutantInfo> muInfos = readInAllMutantInfo(muInfoFileDir);
-        HashMap<String, ArrayList<MutantInfo>> locMapping = new HashMap<>();
+        LinkedHashMap<String, ArrayList<MutantInfo>> locMapping = new LinkedHashMap<>();
 
         String currLoc;
         ArrayList<MutantInfo> currMuSet;
@@ -46,21 +46,77 @@ public class SelectMutants {
         //read test results from xlsx
         LinkedHashMap<Integer, Pair<Double, Double>> pilotTestOutcome = DataAccess.XLSXOperations.ReadPilotTestResultXlsx(pilotTestResult, xlsxName);
 
-        int count = 0;
-        for (Map.Entry<String, ArrayList<MutantInfo>> e : locMapping.entrySet()) {
-            count ++;
-            System.out.println(count + " Loc: " + e.getKey() + "  #:" + e.getValue().size());
-            int id;
-            double killNum;
-            double killRate;
-            for (int i = 0; i <e.getValue().size(); i ++){
-                id = e.getValue().get(i).mutantID;
+        printLinkedHashMap(locMapping, pilotTestOutcome);
+
+        //筛选规则
+        //1 remove所有killRate大于80%的变异体
+        LinkedHashMap<String, ArrayList<MutantInfo>> reducedMutantMapping;
+        reducedMutantMapping = (LinkedHashMap<String, ArrayList<MutantInfo>>)locMapping.clone();
+
+        ArrayList<MutantInfo> currList;
+        for (Map.Entry<String, ArrayList<MutantInfo>> e: reducedMutantMapping.entrySet()){
+            if (e.getKey().equals("print_tokens.c:202:8@")){
+                System.out.println("Found");
+            }
+            currList = e.getValue();
+            MutantInfo currMu;
+            double currKillNum;
+            double currKillRate;
+            for (int i = 0; i < currList.size(); ){
+                currMu = currList.get(i);
                 assert pilotTestOutcome != null;
-                killNum = pilotTestOutcome.get(id).getKey();
-                killRate = pilotTestOutcome.get(id).getValue();
-                System.out.println("        mutant ID: " + id + "  killNum: " + killNum + " killRate:  " + killRate  + "  type of mutation: " + e.getValue().get(i).sourceFragment + "!" + e.getValue().get(i).followFragment);
+                currKillNum = pilotTestOutcome.get(currMu.mutantID).getKey();
+                currKillRate = pilotTestOutcome.get(currMu.mutantID).getValue();
+                if (currKillRate >= 0.9){
+                    currList.remove(currMu);
+                }else{
+                    i++;
+                }
             }
         }
+
+        printLinkedHashMap(reducedMutantMapping, pilotTestOutcome);
+
+        //每个组中找到其candidate
+        LinkedHashMap<String, ArrayList<MutantInfo>> candidateMutantMapping = new LinkedHashMap<>();
+        int count2 = 0;
+        for (Map.Entry<String, ArrayList<MutantInfo>> e : reducedMutantMapping.entrySet()){
+
+            count2 ++;
+            System.out.println(count2 + " Loc: " + e.getKey() + "  #:" + e.getValue().size());
+
+            ArrayList<MutantInfo> curr = e.getValue();
+            if (curr.size() == 0){
+                System.out.println("        No mutants!");
+            }else{
+                MutantInfo currMu;
+                double maxKillNum = -1.0;
+                double currVal;
+                for (int i = 0; i < e.getValue().size(); i ++){
+                    currMu = e.getValue().get(i);
+                    currVal = pilotTestOutcome.get(currMu.mutantID).getKey();
+                    if (pilotTestOutcome.get(currMu.mutantID).getKey() > maxKillNum){
+                        maxKillNum = currVal;
+                    }
+                }
+                ArrayList<MutantInfo> candidateList = new ArrayList<>();
+                if (maxKillNum != 0.0){
+                    for (int i = 0; i < e.getValue().size(); i ++){
+                        currMu = e.getValue().get(i);
+                        currVal = pilotTestOutcome.get(e.getValue().get(i).mutantID).getKey();
+                        if (currVal > 0.0){
+                            candidateList.add(currMu);
+                        }
+                    }
+                    candidateMutantMapping.put(e.getKey(), candidateList);
+                }else{
+                    candidateMutantMapping.put(e.getKey(), e.getValue());
+                }
+            }
+        }
+
+        printLinkedHashMap(candidateMutantMapping, pilotTestOutcome);
+
 
 
         //select Mutants
@@ -74,6 +130,24 @@ public class SelectMutants {
             //boolean b = CopyFile();
 
         //}
+    }
+
+    public static void printLinkedHashMap(LinkedHashMap<String, ArrayList<MutantInfo>> mapping, LinkedHashMap<Integer, Pair<Double, Double>> pilotTestOutcome){
+        int count = 0;
+        for (Map.Entry<String, ArrayList<MutantInfo>> e : mapping.entrySet()) {
+            count ++;
+            System.out.println(count + " Loc: " + e.getKey() + "  #:" + e.getValue().size());
+            int id;
+            double killNum;
+            double killRate;
+            for (int i = 0; i <e.getValue().size(); i ++){
+                id = e.getValue().get(i).mutantID;
+                assert pilotTestOutcome != null;
+                killNum = pilotTestOutcome.get(id).getKey();
+                killRate = pilotTestOutcome.get(id).getValue();
+                System.out.println("        mutant ID: " + id + "  killNum: " + killNum + " killRate:  " + killRate  + "  type of mutation: " + e.getValue().get(i).sourceFragment + "!" + e.getValue().get(i).followFragment);
+            }
+        }
     }
 
     public static ArrayList<MutantInfo> readInAllMutantInfo(String dir) {
