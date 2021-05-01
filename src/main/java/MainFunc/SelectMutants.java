@@ -1,3 +1,6 @@
+package MainFunc;
+
+import Entity.MutantInfo;
 import com.google.gson.stream.JsonReader;
 
 import java.io.*;
@@ -9,7 +12,7 @@ public class SelectMutants {
 
     public static void main(String[] args){
 
-        String muInfoFileDir = "/home/anfu/test_print_tokens/source.modified.clang-compilable/mart-out-0";
+        String muInfoFileDir = "D:\\subjects(20210314)\\mart-out-0"; //String muInfoFileDir = "/home/anfu/test_print_tokens/source.modified.clang-compilable/mart-out-0";
         ArrayList<MutantInfo> muInfos = readInAllMutantInfo(muInfoFileDir);
         HashMap<String, ArrayList<MutantInfo>> locMapping = new HashMap<>();
 
@@ -42,21 +45,21 @@ public class SelectMutants {
             count ++;
             System.out.println(count + " Loc: " + e.getKey() + "  #:" + e.getValue().size());
             for (int i = 0; i <e.getValue().size(); i ++){
-                System.out.println("        type of mutation: " + e.getValue().get(i).sourceFragment + "!" + e.getValue().get(i).followFragment);
+                System.out.println("        mutant ID: " + e.getValue().get(i).mutantID + "  type of mutation: " + e.getValue().get(i).sourceFragment + "!" + e.getValue().get(i).followFragment);
             }
         }
 
         //select Mutants
-        for (Map.Entry<String, ArrayList<MutantInfo>> e: locMapping.entrySet()){
-            String currKey = e.getKey();
-            ArrayList<MutantInfo> currValue = e.getValue();
-            int currTotal = currValue.size();
-            Random r = new Random();
-            int randomSelected = r.nextInt(currTotal);
-            String oldPath = muInfoFileDir + "mutants.out";
+        //for (Map.Entry<String, ArrayList<Entity.MutantInfo>> e: locMapping.entrySet()){
+        //    String currKey = e.getKey();
+        //    ArrayList<Entity.MutantInfo> currValue = e.getValue();
+        //    int currTotal = currValue.size();
+        //    Random r = new Random();
+        //    int randomSelected = r.nextInt(currTotal);
+        //    String oldPath = muInfoFileDir + "mutants.out";
             //boolean b = CopyFile();
 
-        }
+        //}
     }
 
     public static ArrayList<MutantInfo> readInAllMutantInfo(String dir) {
@@ -114,30 +117,6 @@ public class SelectMutants {
         } catch (IOException e) {
             e.printStackTrace();
             return null;
-        }
-    }
-
-    public static boolean CopyFile(String oldPath, String newPath) {
-        try {
-            FileInputStream fis = new FileInputStream(oldPath);
-            BufferedInputStream bufis = new BufferedInputStream(fis);
-            FileOutputStream fos = new FileOutputStream(newPath);
-            BufferedOutputStream bufos = new BufferedOutputStream(fos);
-
-            int len = 0;
-            while((len = bufis.read()) != -1){
-                bufos.write(len);
-            }
-
-            bufis.close();
-            bufos.close();
-            fis.close();
-            fos.close();
-            return true;
-        }
-        catch(IOException ex) {
-            ex.printStackTrace();
-            return false;
         }
     }
 }
