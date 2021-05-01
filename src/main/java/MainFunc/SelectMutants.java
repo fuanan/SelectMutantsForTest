@@ -2,6 +2,7 @@ package MainFunc;
 
 import Entity.MutantInfo;
 import com.google.gson.stream.JsonReader;
+import javafx.util.Pair;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -40,14 +41,27 @@ public class SelectMutants {
             //locMapping.put(currLoc, currMuSet);
         }
 
+        String pilotTestResult = "D:\\20210430_pilot_test";
+        String xlsxName = "violation_rates_reduced_version.xlsx";
+        //read test results from xlsx
+        LinkedHashMap<Integer, Pair<Double, Double>> pilotTestOutcome = DataAccess.XLSXOperations.ReadPilotTestResultXlsx(pilotTestResult, xlsxName);
+
         int count = 0;
         for (Map.Entry<String, ArrayList<MutantInfo>> e : locMapping.entrySet()) {
             count ++;
             System.out.println(count + " Loc: " + e.getKey() + "  #:" + e.getValue().size());
+            int id;
+            double killNum;
+            double killRate;
             for (int i = 0; i <e.getValue().size(); i ++){
-                System.out.println("        mutant ID: " + e.getValue().get(i).mutantID + "  type of mutation: " + e.getValue().get(i).sourceFragment + "!" + e.getValue().get(i).followFragment);
+                id = e.getValue().get(i).mutantID;
+                assert pilotTestOutcome != null;
+                killNum = pilotTestOutcome.get(id).getKey();
+                killRate = pilotTestOutcome.get(id).getValue();
+                System.out.println("        mutant ID: " + id + "  killNum: " + killNum + " killRate:  " + killRate  + "  type of mutation: " + e.getValue().get(i).sourceFragment + "!" + e.getValue().get(i).followFragment);
             }
         }
+
 
         //select Mutants
         //for (Map.Entry<String, ArrayList<Entity.MutantInfo>> e: locMapping.entrySet()){
