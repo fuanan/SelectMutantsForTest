@@ -16,7 +16,7 @@ public class XLSXOperations {
 
     public static LinkedHashMap<Integer, Pair<Double, Double>> ReadPilotTestResultXlsx(String path, String fileName){
         try{
-            File xlsxFile = new File(path + "\\" + fileName);
+            File xlsxFile = new File(path + "/" + fileName);
             FileInputStream fis = new FileInputStream(xlsxFile);
             XSSFWorkbook wb = new XSSFWorkbook(fis);
             XSSFSheet sheet = wb.getSheet("Sheet1");

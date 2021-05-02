@@ -11,9 +11,15 @@ import java.util.*;
 public class SelectMutants {
 
 
-    public static void main(String[] args){
-
+    public static void main (String[] args){
         String muInfoFileDir = "D:\\subjects(20210314)\\mart-out-0"; //String muInfoFileDir = "/home/anfu/test_print_tokens/source.modified.clang-compilable/mart-out-0";
+        String pilotTestResult = "D:\\20210430_pilot_test";
+        String xlsxName = "violation_rates_reduced_version.xlsx";
+        select(muInfoFileDir, pilotTestResult, xlsxName);
+    }
+
+    public static void select(String muInfoFileDir, String pilotTestResult, String xlsxName){
+
         ArrayList<MutantInfo> muInfos = readInAllMutantInfo(muInfoFileDir);
         LinkedHashMap<String, ArrayList<MutantInfo>> locMapping = new LinkedHashMap<>();
 
@@ -41,12 +47,10 @@ public class SelectMutants {
             //locMapping.put(currLoc, currMuSet);
         }
 
-        String pilotTestResult = "D:\\20210430_pilot_test";
-        String xlsxName = "violation_rates_reduced_version.xlsx";
         //read test results from xlsx
         LinkedHashMap<Integer, Pair<Double, Double>> pilotTestOutcome = DataAccess.XLSXOperations.ReadPilotTestResultXlsx(pilotTestResult, xlsxName);
 
-        printLinkedHashMap(locMapping, pilotTestOutcome);
+        printLinkedHashMap(locMapping, pilotTestOutcome, " total");
 
         //筛选规则
         //1 remove所有killRate大于80%的变异体
@@ -75,11 +79,12 @@ public class SelectMutants {
             }
         }
 
-        printLinkedHashMap(reducedMutantMapping, pilotTestOutcome);
+        printLinkedHashMap(reducedMutantMapping, pilotTestOutcome, "filtered");
 
         //每个组中找到其candidate
         LinkedHashMap<String, ArrayList<MutantInfo>> candidateMutantMapping = new LinkedHashMap<>();
         int count2 = 0;
+        int countNo = 0;
         for (Map.Entry<String, ArrayList<MutantInfo>> e : reducedMutantMapping.entrySet()){
 
             count2 ++;
@@ -88,6 +93,7 @@ public class SelectMutants {
             ArrayList<MutantInfo> curr = e.getValue();
             if (curr.size() == 0){
                 System.out.println("        No mutants!");
+                countNo ++;
             }else{
                 MutantInfo currMu;
                 double maxKillNum = -1.0;
@@ -115,24 +121,71 @@ public class SelectMutants {
             }
         }
 
-        printLinkedHashMap(candidateMutantMapping, pilotTestOutcome);
+        System.out.println("Num of No mutants: " + countNo);
+        printLinkedHashMap(candidateMutantMapping, pilotTestOutcome, "candidates");
 
+        //每个组的candidate随机选一个
 
+        LinkedHashMap<String, ArrayList<MutantInfo>> selectedMutants = new LinkedHashMap<>();
+        ArrayList<MutantInfo> currCandidate;
+        int currGroupTotalNum = -1;
+        Random ra = new Random();
+        int currSelectedID;
+        ArrayList<MutantInfo> currSelected;
+        int selectedCount = 0;
+        int zeroKillRateCount = 0;
+        for (Map.Entry<String, ArrayList<MutantInfo>> e : candidateMutantMapping.entrySet()){
+            currCandidate = e.getValue();
+            currGroupTotalNum = currCandidate.size();
+            currSelectedID = ra.nextInt(currGroupTotalNum);
+            currSelected = new ArrayList<>();
+            currSelected.add(currCandidate.get(currSelectedID));
+            selectedMutants.put(e.getKey(), currSelected);
+            selectedCount ++;
+            if (pilotTestOutcome.get(currSelected.get(0).mutantID).getKey() == 0.0){
+                zeroKillRateCount ++;
+            }
+        }
 
-        //select Mutants
-        //for (Map.Entry<String, ArrayList<Entity.MutantInfo>> e: locMapping.entrySet()){
-        //    String currKey = e.getKey();
-        //    ArrayList<Entity.MutantInfo> currValue = e.getValue();
-        //    int currTotal = currValue.size();
-        //    Random r = new Random();
-        //    int randomSelected = r.nextInt(currTotal);
-        //    String oldPath = muInfoFileDir + "mutants.out";
-            //boolean b = CopyFile();
+        printLinkedHashMap(selectedMutants, pilotTestOutcome, "selected");
+        double mutationScore = 1.0 - (double)zeroKillRateCount / (double)selectedCount;
+        System.out.println("Mutation Score: " + mutationScore);
 
-        //}
+        //copy mutants to a seperate folder
+        File selectedMutantBaseFolder = new File (muInfoFileDir + "/" + "mutants.selected");
+        if (!selectedMutantBaseFolder.exists()){
+            selectedMutantBaseFolder.mkdir();
+        }
+        int currID;
+        File currMuFolderNew;
+        String oldMutantBasePath = muInfoFileDir + "/mutants.out";
+        String currMutantOldPath;
+        File[] currTemp;
+        File currMuFile;
+        String currMuName;
+        int finalCount = 0;
+        for (Map.Entry<String, ArrayList<MutantInfo>> e : selectedMutants.entrySet()){
+            currID = e.getValue().get(0).mutantID;
+            currMuFolderNew = new File (selectedMutantBaseFolder.getAbsolutePath() + "/" + currID);
+            assert !currMuFolderNew.exists();
+            currMuFolderNew.mkdir();
+            currMutantOldPath = oldMutantBasePath + "/" + currID;
+            currTemp = new File (currMutantOldPath).listFiles();
+            assert currTemp.length == 1;
+            currMuFile = currTemp[0];
+            currMuName = currMuFile.getName();
+            DataAccess.FileOperations.CopyFile(currMuFile.getAbsolutePath(), currMuFolderNew + "/" + currMuName);
+            finalCount ++;
+        }
+        System.out.println("Final Selected: " + finalCount);
+
     }
 
-    public static void printLinkedHashMap(LinkedHashMap<String, ArrayList<MutantInfo>> mapping, LinkedHashMap<Integer, Pair<Double, Double>> pilotTestOutcome){
+    public static void printLinkedHashMap(LinkedHashMap<String, ArrayList<MutantInfo>> mapping,
+                                          LinkedHashMap<Integer, Pair<Double, Double>> pilotTestOutcome,
+                                          String title){
+
+        System.out.println("***************************** " + title + " *****************************");
         int count = 0;
         for (Map.Entry<String, ArrayList<MutantInfo>> e : mapping.entrySet()) {
             count ++;
@@ -148,6 +201,7 @@ public class SelectMutants {
                 System.out.println("        mutant ID: " + id + "  killNum: " + killNum + " killRate:  " + killRate  + "  type of mutation: " + e.getValue().get(i).sourceFragment + "!" + e.getValue().get(i).followFragment);
             }
         }
+        System.out.println("***************************** END *****************************");
     }
 
     public static ArrayList<MutantInfo> readInAllMutantInfo(String dir) {
